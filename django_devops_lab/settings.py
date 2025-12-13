@@ -169,10 +169,12 @@ DATABASES = {
         'NAME': os.getenv('SQL_DATABASE', 'django_db'),
         'USER': os.getenv('SQL_USER', 'django_user'),
         'PASSWORD': os.getenv('SQL_PASSWORD', 'django_pass'),
-        'HOST': os.getenv('SQL_HOST', 'db'),  # matches GitHub Action service name
+        'HOST': os.getenv('SQL_HOST', 'postgres'),
+
         'PORT': os.getenv('SQL_PORT', '5432'),
     }
 }
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

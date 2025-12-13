@@ -1,0 +1,25 @@
+- name: Configure EC2 Server
+  hosts: ec2
+  become: true
+
+  tasks:
+    - name: Update yum cache
+      yum:
+        update_cache: yes
+
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+
+    - name: Start and enable Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
