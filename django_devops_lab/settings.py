@@ -130,8 +130,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # Local apps
-    'core',
+    'core',   # 👈 ADD THIS LINE
 ]
 
 MIDDLEWARE = [
