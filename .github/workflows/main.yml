@@ -1,56 +1,144 @@
+# name: Django CI/CD Pipeline
+
+# on:
+#   push:
+#     branches: [ "main" ]
+
+# jobs:
+#   build-deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Checkout Code
+#       uses: actions/checkout@v3
+
+#     - name: Setup Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.10'
+
+#     - name: Install Dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install -r requirements.txt
+
+#     - name: Django Tests
+#       run: |
+#         python manage.py migrate
+#         python manage.py test || echo "No tests found"
+
+#     - name: Security Check (Bandit)
+#       run: |
+#         pip install bandit
+#         bandit -r .
+
+#     - name: Docker Login
+#       run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+#     - name: Build & Push Docker Image
+#       run: |
+#         docker build -t ${{ secrets.DOCKER_USERNAME }}/django-devops:latest .
+#         docker push ${{ secrets.DOCKER_USERNAME }}/django-devops:latest
+
+#     - name: Terraform Init
+#       run: terraform init
+#       working-directory: infra/
+
+#     - name: Terraform Apply
+#       run: terraform apply -auto-approve
+#       working-directory: infra/
+
+#     - name: Deploy with Ansible
+#       run: ansible-playbook deploy.yml
+#       working-directory: ansible/
+
+#     - name: Smoke Test
+#       run: curl http://localhost:8000
+
+
 name: Django CI/CD Pipeline
 
 on:
   push:
+    branches: [ "main" ]
+  pull_request:
     branches: [ "main" ]
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
 
+    env:
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      SMOKE_TEST_URL: ${{ secrets.SMOKE_TEST_URL }}  # e.g., http://your-server-ip:8000
+
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      # 1️⃣ Checkout Code
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      # 2️⃣ Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      # 3️⃣ Install Dependencies
+      - name: Install Dependencies
+        run: |
+          set -e
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Django Tests
-      run: |
-        python manage.py migrate
-        python manage.py test || echo "No tests found"
+      # 4️⃣ Django Tests
+      - name: Run Django Tests
+        run: |
+          set -e
+          python manage.py migrate
+          python manage.py test || echo "No tests found"
 
-    - name: Security Check (Bandit)
-      run: |
-        pip install bandit
-        bandit -r .
+      # 5️⃣ Security Check
+      - name: Run Bandit Security Scan
+        run: |
+          set -e
+          pip install bandit
+          bandit -r .
 
-    - name: Docker Login
-      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      # 6️⃣ Docker Build & Push
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-    - name: Build & Push Docker Image
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/django-devops:latest .
-        docker push ${{ secrets.DOCKER_USERNAME }}/django-devops:latest
+      - name: Build & Push Docker Image
+        run: |
+          set -e
+          IMAGE_NAME=${{ secrets.DOCKER_USERNAME }}/django-devops
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ github.sha }} .
+          docker push $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:${{ github.sha }}
 
-    - name: Terraform Init
-      run: terraform init
-      working-directory: infra/
+      # 7️⃣ Terraform
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra/
 
-    - name: Terraform Apply
-      run: terraform apply -auto-approve
-      working-directory: infra/
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: infra/
 
-    - name: Deploy with Ansible
-      run: ansible-playbook deploy.yml
-      working-directory: ansible/
+      # 8️⃣ Deployment with Ansible
+      - name: Deploy with Ansible
+        run: ansible-playbook deploy.yml
+        working-directory: ansible/
 
-    - name: Smoke Test
-      run: curl http://localhost:8000
+      # 9️⃣ Post-deploy Smoke Test
+      - name: Smoke Test
+        run: |
+          set -e
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" $SMOKE_TEST_URL)
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Smoke test failed! Status code: $STATUS"
+            exit 1
+          fi
+          echo "Smoke test passed! Status code: $STATUS"
