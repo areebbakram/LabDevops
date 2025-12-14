@@ -1,0 +1,11 @@
+- name: Deploy Django App
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Pull Docker Image
+      shell: docker pull areeb011/django-devops:latest
+
+    - name: Run Container
+      shell: |
+        docker rm -f django-app || true
+        docker run -d -p 8000:8000 --name django-app YOUR_DOCKER_USERNAME/django-devops:latest
