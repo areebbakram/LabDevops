@@ -8,4 +8,5 @@
     - name: Run Container
       shell: |
         docker rm -f django-app || true
-        docker run -d -p 8000:8000 --name django-app YOUR_DOCKER_USERNAME/django-devops:latest
+        docker run -d -p 8000:8000 --name django-app areeb011/django-devops:latest
+
